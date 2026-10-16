@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 120" role="img" aria-labelledby="title desc">
+  <title id="title">VELTRION</title><desc id="desc">Gold and electric blue V emblem with VELTRION wordmark</desc>
+  <defs>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff0a8"/><stop offset=".42" stop-color="#f4c04f"/><stop offset="1" stop-color="#b77912"/></linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#6de1ff"/><stop offset=".55" stop-color="#1989f5"/><stop offset="1" stop-color="#1550b7"/></linearGradient>
+  </defs>
+  <path d="M12 12h23l30 57 28-57h24L70 106h-9z" fill="url(#gold)"/>
+  <path d="M64 69 99 12h25L86 76 75 94z" fill="url(#blue)"/>
+  <path d="M139 31h4v40h-4z" fill="#f3bd42" opacity=".8"/>
+  <text x="160" y="62" font-family="Arial, Helvetica, sans-serif" font-size="43" font-weight="700" letter-spacing="5" fill="url(#gold)">VELTRION</text>
+  <text x="162" y="91" font-family="Arial, Helvetica, sans-serif" font-size="12" font-weight="600" letter-spacing="2.6" fill="#d4deee">GLOBAL DIGITAL ASSET PLATFORM</text>
+</svg>

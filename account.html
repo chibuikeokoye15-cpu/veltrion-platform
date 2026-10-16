@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Your VELTRION account — VELTRION</title>
+  <link rel="stylesheet" href="assets/styles.css">
+</head>
+<body>
+  <header class="nav">
+    <a class="brand" href="index.html"><img src="assets/veltrion-logo.svg" alt="VELTRION"></a>
+    <button class="btn btn-ghost" id="signOutButton" type="button">Sign out</button>
+  </header>
+  <main class="wrap">
+    <section class="page-hero">
+      <div class="eyebrow">SECURE ACCOUNT</div>
+      <h1>Welcome to your account.</h1>
+      <p>This account page verifies your Supabase sign-in and profile connection. It does not yet provide live balances, deposits, withdrawals, or investment services.</p>
+    </section>
+    <section class="dash-section" style="max-width:760px;margin-bottom:70px">
+      <h2 id="accountName">Loading your profile…</h2>
+      <p id="accountEmail" class="muted"></p>
+      <p id="accountRole" class="muted">Checking account permissions…</p>
+      <div id="accountStatus" class="notice" role="status" aria-live="polite" hidden></div>
+      <div class="admin-controls"><a class="btn btn-blue" href="markets.html">Explore markets</a><a class="btn btn-ghost" href="security.html">Security information</a></div>
+      <div class="dash-grid" style="margin-top:24px"><div class="dash-card"><small>ACCOUNT BALANCES</small><strong id="accountBalanceCount">—</strong><p>Assets with ledger activity</p></div><div class="dash-card"><small>UNREAD NOTIFICATIONS</small><strong id="unreadCount">—</strong><p>Messages for your account</p></div><div class="dash-card"><small>ACCOUNT STATUS</small><strong id="verificationStatus">—</strong><p>Verification status</p></div></div>
+      <section class="dash-section"><h2>Your balances</h2><p class="muted" style="font-size:12px">Balances are calculated from recorded ledger entries. They do not independently prove cryptocurrency custody or available on-chain funds.</p><div id="customerBalances" class="customer-balances"><p>Loading balances…</p></div></section>
+      <section class="dash-section"><h2>Notifications</h2><div id="customerNotifications" class="customer-balances"><p>Loading notifications…</p></div></section>
+      <section class="dash-section"><h2>Recent transactions</h2><div style="overflow-x:auto"><table class="data-table"><thead><tr><th>DATE</th><th>ASSET</th><th>AMOUNT</th><th>TYPE</th><th>REASON</th></tr></thead><tbody id="customerLedger"><tr><td colspan="5">Loading transactions…</td></tr></tbody></table></div></section>
+    </section>
+  </main>
+  <footer class="wrap footer-bottom"><span>© 2026 VELTRION</span><span>Account information · Deposits and withdrawals are not enabled until payment infrastructure is configured</span></footer>
+  <script type="module" src="assets/account.js"></script>
+</body>
+</html>
