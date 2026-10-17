@@ -11,13 +11,13 @@ const assets = [
 const logo = a => `https://s2.coinmarketcap.com/static/img/coins/64x64/${a.id}.png`;
 const fmt = n => n >= 1000 ? '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : n >= 1 ? '$'+n.toFixed(2) : '$'+n.toFixed(3);
 const pct = n => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
-const coinMarkup = a => `<div class="ticker-item"><img src="${logo(a)}" alt="${a.name} logo"><span><b>${a.symbol}</b><small>${a.name}</small></span><strong class="${a.change<0?'down':''}">${pct(a.change)}</strong></div>`;
+const coinMarkup = a => `<div class="ticker-item" data-symbol="${a.symbol}"><img src="${logo(a)}" alt="${a.name} logo"><span><b>${a.symbol}</b><small>${a.name}</small></span><small class="ticker-live-price">Loading…</small><strong>—</strong></div>`;
 const ticker = document.getElementById('tickerTrack');
 if (ticker) ticker.innerHTML = [...assets,...assets].map(coinMarkup).join('');
 const marquee = document.getElementById('coinMarquee');
 if (marquee) marquee.innerHTML = [...assets,...assets].map(a=>`<div class="coin-marquee-card"><img src="${logo(a)}" alt="${a.name} cryptocurrency logo"><div><b>${a.name}</b><small>${a.symbol} · preview value</small></div><em class="${a.change<0?'down':''}">${pct(a.change)}</em></div>`).join('');
 const grid = document.getElementById('assetGrid');
-if (grid) grid.innerHTML = assets.map((a,i)=>`<article class="asset-card" style="--asset-glow:${a.glow}"><div class="asset-card-top"><img src="${logo(a)}" alt="${a.name} logo"><div><b>${a.name}</b><small>${a.symbol}</small></div><span class="asset-badge">${i<3?'POPULAR':'EXPLORE'}</span></div><div class="asset-price">${fmt(a.price)}</div><div class="asset-change ${a.change<0?'down':''}">${a.change<0?'↘':'↗'} ${pct(a.change)} <span>illustrative 24h move</span></div><svg class="asset-spark" viewBox="0 0 250 42" preserveAspectRatio="none"><defs><linearGradient id="spark${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a.change<0?'#ff799f':'#54d9ff'}" stop-opacity=".27"/><stop offset="1" stop-color="${a.change<0?'#ff799f':'#54d9ff'}" stop-opacity="0"/></linearGradient></defs><path d="${sparkPath(i,a.change<0)} L250 42 L0 42Z" fill="url(#spark${i})"/><path d="${sparkPath(i,a.change<0)}" fill="none" stroke="${a.change<0?'#ff799f':'#64e1ff'}" stroke-width="2" stroke-linecap="round"/></svg><div class="asset-card-footer"><span>MARKET SNAPSHOT</span><span>Demo values · Not live</span></div></article>`).join('');
+if (grid) grid.innerHTML = assets.map((a,i)=>`<article class="asset-card" style="--asset-glow:${a.glow}"><div class="asset-card-top"><img src="${logo(a)}" alt="${a.name} logo"><div><b>${a.name}</b><small>${a.symbol}</small></div><span class="asset-badge">${i<3?'POPULAR':'EXPLORE'}</span></div><div class="asset-price">—</div><div class="asset-change">Market data loading <span>waiting for provider</span></div><svg class="asset-spark" viewBox="0 0 250 42" preserveAspectRatio="none"><defs><linearGradient id="spark${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a.change<0?'#ff799f':'#54d9ff'}" stop-opacity=".27"/><stop offset="1" stop-color="${a.change<0?'#ff799f':'#54d9ff'}" stop-opacity="0"/></linearGradient></defs><path d="${sparkPath(i,a.change<0)} L250 42 L0 42Z" fill="url(#spark${i})"/><path d="${sparkPath(i,a.change<0)}" fill="none" stroke="${a.change<0?'#ff799f':'#64e1ff'}" stroke-width="2" stroke-linecap="round"/></svg><div class="asset-card-footer"><span>MARKET SNAPSHOT</span><span>Demo values · Not live</span></div></article>`).join('');
 function sparkPath(seed,down){let pts=[];let y=23;for(let x=0;x<=250;x+=25){y += Math.sin((x+seed*17)/18)*5 + Math.cos((x+seed*9)/13)*3 + (down?1.1:-.7);y=Math.max(4,Math.min(37,y));pts.push(`${x===0?'M':'L'}${x} ${y.toFixed(1)}`)}return pts.join(' ')}
 // Reveal sections as they enter the viewport.
 const revealEls = document.querySelectorAll('.reveal');
@@ -62,4 +62,94 @@ if(form) form.addEventListener('submit',e=>{e.preventDefault();const msg=documen
 })();
 // Reusable market explorer rows, using recognizable branded asset logos.
 const marketRows=document.getElementById('marketRows');
-if(marketRows){marketRows.innerHTML=assets.map((a,i)=>`<div class="market-row"><div class="market-asset-cell"><img src="${logo(a)}" alt="${a.name} logo"><span><b>${a.name}</b><small>${a.symbol}</small></span></div><strong>${fmt(a.price)}</strong><span class="${a.change<0?'negative':'positive'}">${pct(a.change)}</span><span class="mini-bar"><i style="width:${Math.max(15,Math.min(95,48+a.change*12))}%;background:${a.change<0?'#ff799f':'linear-gradient(90deg,#4e9fff,#5ff0db)'}"></i></span><a class="text-link" href="signup.html">Explore ↗</a></div>`).join('')}
+if(marketRows){marketRows.innerHTML=assets.map(a=>`<div class="market-row" data-symbol="${a.symbol}"><div class="market-asset-cell"><img src="${logo(a)}" alt="${a.name} logo"><span><b>${a.name}</b><small>${a.symbol}</small></span></div><strong>—</strong><span class="muted">—</span><span class="mini-bar"><i style="width:50%"></i></span><a class="text-link" href="signup.html">Explore ↗</a></div>`).join('')}
+
+
+// Live market feed. One batched request updates all visible market components.
+// Values remain blank until the provider returns real data; there are no fake quote fallbacks.
+(async function initLiveMarketFeed() {
+  const ids = 'bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano';
+  const statusEls = [...document.querySelectorAll('[data-market-data-status]')];
+  const noteEls = [...document.querySelectorAll('[data-market-demo-note]')];
+  let inFlight = false;
+  const setStatus = message => statusEls.forEach(el => { el.textContent = message; });
+  const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: Number(n) < 1 ? 5 : 2 }).format(Number(n));
+  const changeText = n => `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(2)}%`;
+  const setChange = (el, value) => {
+    if (!el) return;
+    el.textContent = changeText(value);
+    el.classList.toggle('down', Number(value) < 0);
+    el.classList.toggle('negative', Number(value) < 0);
+    el.classList.toggle('positive', Number(value) >= 0);
+  };
+  async function refresh() {
+    if (inFlight || !navigator.onLine) { if (!navigator.onLine) setStatus('Offline — live prices unavailable'); return; }
+    inFlight = true;
+    setStatus('Connecting to live market data…');
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 12000);
+      let response;
+      try {
+        response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&price_change_percentage=24h`, { headers: { accept: 'application/json' }, cache: 'no-store', signal: controller.signal });
+      } finally { clearTimeout(timeout); }
+      if (!response.ok) throw new Error(`Provider returned ${response.status}`);
+      const data = await response.json();
+      if (!Array.isArray(data) || data.length < 5) throw new Error('Provider returned incomplete market data');
+      const live = new Map(data.map(coin => [String(coin.symbol || '').toUpperCase(), coin]));
+      const now = new Date();
+      document.querySelectorAll('.ticker-item').forEach(item => {
+        const symbol = (item.dataset.symbol || item.querySelector('b')?.textContent || '').trim().toUpperCase();
+        const coin = live.get(symbol); if (!coin || !Number.isFinite(Number(coin.current_price))) return;
+        const price = item.querySelector('.ticker-live-price'); if (price) price.textContent = money(coin.current_price);
+        setChange(item.querySelector('strong'), coin.price_change_percentage_24h ?? 0);
+      });
+      document.querySelectorAll('.coin-marquee-card').forEach(item => {
+        const symbol = item.querySelector('small')?.textContent?.split('·')[0]?.trim().toUpperCase();
+        const coin = live.get(symbol); if (!coin) return;
+        const label = item.querySelector('small'); if (label) label.textContent = `${symbol} · ${money(coin.current_price)}`;
+        setChange(item.querySelector('em'), coin.price_change_percentage_24h ?? 0);
+      });
+      document.querySelectorAll('.asset-card').forEach(card => {
+        const symbol = card.querySelector('.asset-card-top small')?.textContent?.trim().toUpperCase();
+        const coin = live.get(symbol); if (!coin) return;
+        const price = card.querySelector('.asset-price'); if (price) price.textContent = money(coin.current_price);
+        const change = card.querySelector('.asset-change');
+        if (change) { change.firstChild.textContent = `${Number(coin.price_change_percentage_24h) < 0 ? '↘' : '↗'} ${changeText(coin.price_change_percentage_24h ?? 0)} `; change.classList.toggle('down', Number(coin.price_change_percentage_24h) < 0); const note = change.querySelector('span'); if (note) note.textContent = 'live 24h change'; }
+        const foot = card.querySelector('.asset-card-footer span:last-child'); if (foot) foot.textContent = `Updated ${now.toLocaleTimeString()}`;
+      });
+      document.querySelectorAll('.market-row').forEach(row => {
+        const symbol = (row.dataset.symbol || row.querySelector('.market-asset-cell small')?.textContent || '').trim().toUpperCase();
+        const coin = live.get(symbol); if (!coin) return;
+        const price = row.querySelector(':scope > strong'); if (price) price.textContent = money(coin.current_price);
+        setChange(row.querySelector(':scope > span'), coin.price_change_percentage_24h ?? 0);
+        const bar = row.querySelector('.mini-bar i'); if (bar) { const move = Number(coin.price_change_percentage_24h || 0); bar.style.width = `${Math.max(8, Math.min(100, 50 + move * 5))}%`; }
+      });
+      noteEls.forEach(el => { el.textContent = `Source: CoinGecko · Last updated ${now.toLocaleTimeString()} · Refreshes every 60 seconds.`; });
+      setStatus(`Live market data connected · updated ${now.toLocaleTimeString()}`);
+    } catch (error) {
+      setStatus('Live market data unavailable — no current prices are being shown.');
+      noteEls.forEach(el => { el.textContent = 'Unable to retrieve live quotes. Please retry shortly; no sample prices are presented as live.'; });
+    } finally { inFlight = false; }
+  }
+  await refresh();
+  window.setInterval(refresh, 60000);
+  window.addEventListener('online', refresh);
+})();
+
+// Market Explorer search: filter the already-rendered asset rows without reloading the page.
+const marketSearch = document.getElementById('marketSearch');
+if (marketSearch && marketRows) {
+  const count = document.getElementById('marketSearchCount');
+  const filterRows = () => {
+    const query = marketSearch.value.trim().toLowerCase();
+    const rows = [...marketRows.querySelectorAll('.market-row')];
+    let visible = 0;
+    rows.forEach(row => {
+      const match = row.textContent.toLowerCase().includes(query);
+      row.hidden = !match; if (match) visible++;
+    });
+    if (count) count.textContent = `Showing ${visible} of ${rows.length} assets`;
+  };
+  marketSearch.addEventListener('input', filterRows); filterRows();
+}

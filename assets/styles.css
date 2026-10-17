@@ -17,3 +17,22 @@ body:not(.home-page){background:radial-gradient(ellipse at 80% 0,rgba(65,87,255,
 #authMessage[data-kind="error"],#accountStatus[data-kind="error"]{border-color:rgba(255,126,153,.4);background:rgba(255,83,124,.08);color:#ffb1c2}
 #authMessage[data-kind="success"],#accountStatus[data-kind="success"]{border-color:rgba(92,226,179,.35);background:rgba(92,226,179,.08);color:#8cf0c8}
 button:disabled{opacity:.65;cursor:wait;transform:none!important}
+
+/* VELTRION ticker readability and live-price styling */
+.ticker-shell{display:block;min-height:62px}.ticker-track{will-change:transform}.ticker-live-price{display:inline-block;margin-left:8px;color:#d7e8ff;font-size:10px;font-weight:600;white-space:nowrap}.ticker-item{display:flex;align-items:center;gap:10px}.ticker-item>span{flex-shrink:0}.ticker-item>strong{flex-shrink:0}
+
+/* VELTRION ticker fixes: scope the homepage ticker so older shared styles cannot hide or override it. */
+.ticker-shell{display:block!important;overflow:hidden;height:62px;position:relative;white-space:nowrap}
+.ticker-shell .ticker-track{display:flex;align-items:center;gap:0;width:max-content;height:100%;animation:tickerMove 38s linear infinite;white-space:nowrap}
+.ticker-shell .ticker-item{flex:0 0 205px;height:100%;display:flex;align-items:center}
+.ticker-shell .ticker-item strong{margin-left:auto}
+.ticker{overflow:hidden;min-width:0}
+.ticker:not(.ticker-shell) .ticker-track{display:flex;align-items:center;gap:0;width:max-content;animation:tickerMove 38s linear infinite}
+.ticker:not(.ticker-shell) .ticker-item{flex:0 0 205px;height:34px;min-width:205px;padding:0 12px;gap:8px}
+.ticker:not(.ticker-shell) .ticker-item img{width:22px;height:22px}
+.ticker:not(.ticker-shell) .ticker-item small{display:none}
+@keyframes tickerMove{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+@media(prefers-reduced-motion:reduce){.ticker-shell .ticker-track,.ticker:not(.ticker-shell) .ticker-track{animation:none!important;transform:none!important}}
+
+.market-tools{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:0 0 14px}.market-search-label{font-size:11px;color:#cbd8ed}.market-tools input{width:min(100%,380px);border:1px solid rgba(142,181,255,.25);border-radius:10px;padding:12px 14px;background:#0b1830;color:#fff;outline:none}.market-tools input:focus{border-color:#64e5ff;box-shadow:0 0 0 3px rgba(100,229,255,.1)}.market-tools .muted{font-size:11px}
+.deposit-address-card{display:grid;grid-template-columns:minmax(0,1fr) 180px;align-items:center;gap:22px}.deposit-address-value{overflow-wrap:anywhere;word-break:break-word;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;color:#dbe8ff;background:rgba(2,10,23,.55);border:1px solid var(--line);border-radius:10px;padding:12px}.deposit-qr{width:180px;height:180px;background:#fff;padding:8px;border-radius:12px}.copy-status{display:inline-block;margin-left:10px;font-size:11px;color:#8fe8c3}@media(max-width:640px){.deposit-address-card{grid-template-columns:1fr}.deposit-qr{width:160px;height:160px}}

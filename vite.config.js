@@ -16,6 +16,7 @@ export default defineConfig({
         platform: resolve(root, 'platform.html'),
         security: resolve(root, 'security.html'),
         login: resolve(root, 'login.html'),
+        adminLogin: resolve(root, 'admin-login.html'),
         signup: resolve(root, 'signup.html'),
         account: resolve(root, 'account.html'),
         admin: resolve(root, 'admin.html'),

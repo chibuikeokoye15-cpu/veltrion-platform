@@ -9,7 +9,7 @@ function statusMessage(text, error = false) { status.textContent = text; status.
 async function boot() {
   if (!supabaseConfigured) { statusMessage('Supabase is not configured. Add the VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY environment variables before building.', true); return; }
   const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) { window.location.replace('login.html?next=admin'); return; }
+  if (authError || !user) { window.location.replace('admin-login.html'); return; }
   const { data: profile, error: profileError } = await supabase.from('profiles').select('role,display_name').eq('id', user.id).maybeSingle();
   if (profileError || !profile || !['admin','compliance'].includes(profile.role)) { statusMessage('Access denied. This account is not authorized for the administrator console.', true); return; }
   $('adminRole').textContent = profile.role.toUpperCase();
