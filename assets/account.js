@@ -11,6 +11,7 @@ if (!supabaseConfigured) setStatus('Supabase is not configured. Add the two VITE
 else {
   const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => { if (event === 'SIGNED_OUT' || !session) window.location.replace('login.html'); });
   window.addEventListener('beforeunload', () => subscription.unsubscribe(), { once: true });
+  async function initializeAccount() {
   try {
     const { data: { user }, error } = await supabase.auth.getUser();
     if (error || !user) window.location.replace('login.html');
@@ -30,6 +31,8 @@ else {
       await Promise.all([loadBalances(), loadNotifications(), loadLedger()]);
     }
   } catch (error) { setStatus(error?.message || 'Unable to load your account right now.', 'error'); }
+  }
+  initializeAccount();
 }
 async function loadBalances() {
   const { data, error } = await supabase.rpc('customer_asset_balances');
