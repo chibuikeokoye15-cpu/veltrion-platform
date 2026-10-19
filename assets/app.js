@@ -11,13 +11,13 @@ const assets = [
 const logo = a => `https://s2.coinmarketcap.com/static/img/coins/64x64/${a.id}.png`;
 const fmt = n => n >= 1000 ? '$'+n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}) : n >= 1 ? '$'+n.toFixed(2) : '$'+n.toFixed(3);
 const pct = n => `${n >= 0 ? '+' : ''}${n.toFixed(2)}%`;
-const coinMarkup = a => `<div class="ticker-item" data-symbol="${a.symbol}"><img src="${logo(a)}" alt="${a.name} logo"><span><b>${a.symbol}</b><small>${a.name}</small></span><small class="ticker-live-price">Loading…</small><strong>—</strong></div>`;
+const coinMarkup = a => `<div class="ticker-item"><img src="${logo(a)}" alt="${a.name} logo"><span><b>${a.symbol}</b><small>${a.name}</small></span><strong class="${a.change<0?'down':''}">${pct(a.change)}</strong></div>`;
 const ticker = document.getElementById('tickerTrack');
 if (ticker) ticker.innerHTML = [...assets,...assets].map(coinMarkup).join('');
 const marquee = document.getElementById('coinMarquee');
 if (marquee) marquee.innerHTML = [...assets,...assets].map(a=>`<div class="coin-marquee-card"><img src="${logo(a)}" alt="${a.name} cryptocurrency logo"><div><b>${a.name}</b><small>${a.symbol} · preview value</small></div><em class="${a.change<0?'down':''}">${pct(a.change)}</em></div>`).join('');
 const grid = document.getElementById('assetGrid');
-if (grid) grid.innerHTML = assets.map((a,i)=>`<article class="asset-card" style="--asset-glow:${a.glow}"><div class="asset-card-top"><img src="${logo(a)}" alt="${a.name} logo"><div><b>${a.name}</b><small>${a.symbol}</small></div><span class="asset-badge">${i<3?'POPULAR':'EXPLORE'}</span></div><div class="asset-price">—</div><div class="asset-change">Market data loading <span>waiting for provider</span></div><svg class="asset-spark" viewBox="0 0 250 42" preserveAspectRatio="none"><defs><linearGradient id="spark${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a.change<0?'#ff799f':'#54d9ff'}" stop-opacity=".27"/><stop offset="1" stop-color="${a.change<0?'#ff799f':'#54d9ff'}" stop-opacity="0"/></linearGradient></defs><path d="${sparkPath(i,a.change<0)} L250 42 L0 42Z" fill="url(#spark${i})"/><path d="${sparkPath(i,a.change<0)}" fill="none" stroke="${a.change<0?'#ff799f':'#64e1ff'}" stroke-width="2" stroke-linecap="round"/></svg><div class="asset-card-footer"><span>MARKET SNAPSHOT</span><span>Demo values · Not live</span></div></article>`).join('');
+if (grid) grid.innerHTML = assets.map((a,i)=>`<article class="asset-card" style="--asset-glow:${a.glow}"><div class="asset-card-top"><img src="${logo(a)}" alt="${a.name} logo"><div><b>${a.name}</b><small>${a.symbol}</small></div><span class="asset-badge">${i<3?'POPULAR':'EXPLORE'}</span></div><div class="asset-price">${fmt(a.price)}</div><div class="asset-change ${a.change<0?'down':''}">${a.change<0?'↘':'↗'} ${pct(a.change)} <span>illustrative 24h move</span></div><svg class="asset-spark" viewBox="0 0 250 42" preserveAspectRatio="none"><defs><linearGradient id="spark${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${a.change<0?'#ff799f':'#54d9ff'}" stop-opacity=".27"/><stop offset="1" stop-color="${a.change<0?'#ff799f':'#54d9ff'}" stop-opacity="0"/></linearGradient></defs><path d="${sparkPath(i,a.change<0)} L250 42 L0 42Z" fill="url(#spark${i})"/><path d="${sparkPath(i,a.change<0)}" fill="none" stroke="${a.change<0?'#ff799f':'#64e1ff'}" stroke-width="2" stroke-linecap="round"/></svg><div class="asset-card-footer"><span>MARKET SNAPSHOT</span><span>Demo values · Not live</span></div></article>`).join('');
 function sparkPath(seed,down){let pts=[];let y=23;for(let x=0;x<=250;x+=25){y += Math.sin((x+seed*17)/18)*5 + Math.cos((x+seed*9)/13)*3 + (down?1.1:-.7);y=Math.max(4,Math.min(37,y));pts.push(`${x===0?'M':'L'}${x} ${y.toFixed(1)}`)}return pts.join(' ')}
 // Reveal sections as they enter the viewport.
 const revealEls = document.querySelectorAll('.reveal');
@@ -62,79 +62,138 @@ if(form) form.addEventListener('submit',e=>{e.preventDefault();const msg=documen
 })();
 // Reusable market explorer rows, using recognizable branded asset logos.
 const marketRows=document.getElementById('marketRows');
-if(marketRows){marketRows.innerHTML=assets.map(a=>`<div class="market-row" data-symbol="${a.symbol}"><div class="market-asset-cell"><img src="${logo(a)}" alt="${a.name} logo"><span><b>${a.name}</b><small>${a.symbol}</small></span></div><strong>—</strong><span class="muted">—</span><span class="mini-bar"><i style="width:50%"></i></span><a class="text-link" href="signup.html">Explore ↗</a></div>`).join('')}
+if(marketRows){marketRows.innerHTML=assets.map((a,i)=>`<div class="market-row"><div class="market-asset-cell"><img src="${logo(a)}" alt="${a.name} logo"><span><b>${a.name}</b><small>${a.symbol}</small></span></div><strong>${fmt(a.price)}</strong><span class="${a.change<0?'negative':'positive'}">${pct(a.change)}</span><span class="mini-bar"><i style="width:${Math.max(15,Math.min(95,48+a.change*12))}%;background:${a.change<0?'#ff799f':'linear-gradient(90deg,#4e9fff,#5ff0db)'}"></i></span><a class="text-link" href="signup.html">Explore ↗</a></div>`).join('')}
 
 
-// Live market feed. One batched request updates all visible market components.
-// Values remain blank until the provider returns real data; there are no fake quote fallbacks.
-(async function initLiveMarketFeed() {
-  const ids = 'bitcoin,ethereum,tether,binancecoin,solana,ripple,dogecoin,cardano';
-  const statusEls = [...document.querySelectorAll('[data-market-data-status]')];
-  const noteEls = [...document.querySelectorAll('[data-market-demo-note]')];
-  let inFlight = false;
-  const setStatus = message => statusEls.forEach(el => { el.textContent = message; });
-  const money = n => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', maximumFractionDigits: Number(n) < 1 ? 5 : 2 }).format(Number(n));
-  const changeText = n => `${Number(n) >= 0 ? '+' : ''}${Number(n).toFixed(2)}%`;
-  const setChange = (el, value) => {
-    if (!el) return;
-    el.textContent = changeText(value);
-    el.classList.toggle('down', Number(value) < 0);
-    el.classList.toggle('negative', Number(value) < 0);
-    el.classList.toggle('positive', Number(value) >= 0);
+// Live market data: refresh automatically every 60 seconds, with a second public
+// provider as fallback. Values remain explicitly labelled as preview if both fail.
+const liveMarketAssets = [
+  { symbol: 'BTC', id: 'bitcoin', binance: 'BTCUSDT' },
+  { symbol: 'ETH', id: 'ethereum', binance: 'ETHUSDT' },
+  { symbol: 'USDT', id: 'tether', binance: null },
+  { symbol: 'BNB', id: 'binancecoin', binance: 'BNBUSDT' },
+  { symbol: 'SOL', id: 'solana', binance: 'SOLUSDT' },
+  { symbol: 'XRP', id: 'ripple', binance: 'XRPUSDT' },
+  { symbol: 'DOGE', id: 'dogecoin', binance: 'DOGEUSDT' },
+  { symbol: 'ADA', id: 'cardano', binance: 'ADAUSDT' },
+];
+(async function liveMarketController() {
+  const statusLabels = document.querySelectorAll('[data-market-data-status]');
+  const noteLabels = document.querySelectorAll('[data-market-demo-note]');
+  const setStatus = text => statusLabels.forEach(el => { el.textContent = text; });
+  const setNote = text => noteLabels.forEach(el => { el.textContent = text; });
+  const money = value => new Intl.NumberFormat('en-US', {
+    style: 'currency', currency: 'USD',
+    minimumFractionDigits: Number(value) < 1 ? 3 : 2,
+    maximumFractionDigits: Number(value) < 1 ? 6 : 2
+  }).format(Number(value));
+  const changeText = value => `${Number(value) >= 0 ? '+' : ''}${Number(value).toFixed(2)}%`;
+  const setChange = (element, value) => {
+    if (!element) return;
+    element.textContent = changeText(value);
+    element.classList.toggle('down', Number(value) < 0);
+    element.classList.toggle('negative', Number(value) < 0);
+    element.classList.toggle('positive', Number(value) >= 0);
   };
+  async function fetchWithTimeout(url, timeoutMs = 9000) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), timeoutMs);
+    try {
+      const response = await fetch(url, { signal: controller.signal, cache: 'no-store', headers: { accept: 'application/json' } });
+      if (!response.ok) throw new Error(`Market provider returned HTTP ${response.status}`);
+      return await response.json();
+    } finally { clearTimeout(timer); }
+  }
+  async function getMarketData() {
+    // Prefer our same-origin Vercel function to avoid browser CORS/provider limits.
+    // Direct public-provider calls remain a fallback if the function is unavailable.
+    try {
+      const response = await fetchWithTimeout('/api/market', 9000);
+      if (Array.isArray(response.data) && response.data.length === liveMarketAssets.length) {
+        return { bySymbol: new Map(response.data.map(row => [String(row.symbol).toUpperCase(), { price: Number(row.price), change: Number(row.change24h) }])), source: response.provider || 'VELTRION market API' };
+      }
+      throw new Error('VELTRION market API returned incomplete data');
+    } catch (apiError) {
+      const ids = liveMarketAssets.map(a => a.id).join(',');
+      try {
+        const rows = await fetchWithTimeout(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${encodeURIComponent(ids)}&price_change_percentage=24h`);
+        if (!Array.isArray(rows) || !rows.length) throw new Error('CoinGecko returned no rows');
+        const byId = new Map(rows.map(row => [row.id, { symbol: String(row.symbol).toUpperCase(), price: Number(row.current_price), change: Number(row.price_change_percentage_24h ?? 0) }]));
+        if (liveMarketAssets.some(asset => !byId.get(asset.id)?.price)) throw new Error('CoinGecko response was incomplete');
+        return { bySymbol: new Map([...byId.values()].map(row => [row.symbol, row])), source: 'CoinGecko direct fallback' };
+      } catch (firstError) {
+        const symbols = liveMarketAssets.filter(a => a.binance).map(a => a.binance);
+        const data = await fetchWithTimeout(`https://api.binance.com/api/v3/ticker/24hr?symbols=${encodeURIComponent(JSON.stringify(symbols))}`);
+        if (!Array.isArray(data) || !data.length) throw firstError || apiError;
+        const byPair = new Map(data.map(row => [row.symbol, { price: Number(row.lastPrice), change: Number(row.priceChangePercent || 0) }]));
+        const bySymbol = new Map();
+        for (const asset of liveMarketAssets) {
+          if (!asset.binance && asset.symbol === 'USDT') { bySymbol.set('USDT', { price: 1, change: 0 }); continue; }
+          const row = byPair.get(asset.binance);
+          if (row && Number.isFinite(row.price) && row.price > 0) bySymbol.set(asset.symbol, row);
+        }
+        if (bySymbol.size < liveMarketAssets.length) throw firstError || apiError;
+        return { bySymbol, source: 'Binance direct fallback' };
+      }
+    }
+  }
+  function applyLiveData(bySymbol) {
+    document.querySelectorAll('.ticker-item').forEach(item => {
+      const symbol = item.querySelector('b')?.textContent?.trim().toUpperCase();
+      const coin = bySymbol.get(symbol); if (!coin) return;
+      let price = item.querySelector('.ticker-live-price');
+      if (!price) { price = document.createElement('small'); price.className = 'ticker-live-price'; item.insertBefore(price, item.querySelector('strong')); }
+      price.textContent = money(coin.price);
+      setChange(item.querySelector('strong'), coin.change);
+      item.dataset.marketSource = 'live';
+      item.title = `Live price ${money(coin.price)}; 24-hour change ${changeText(coin.change)}`;
+    });
+    document.querySelectorAll('.coin-marquee-card').forEach(item => {
+      const symbol = item.querySelector('small')?.textContent?.split('·')[0]?.trim().toUpperCase();
+      const coin = bySymbol.get(symbol); if (!coin) return;
+      item.querySelector('small').textContent = `${symbol} · ${money(coin.price)}`;
+      setChange(item.querySelector('em'), coin.change);
+    });
+    document.querySelectorAll('.asset-card').forEach(card => {
+      const symbol = card.querySelector('.asset-card-top small')?.textContent?.trim().toUpperCase();
+      const coin = bySymbol.get(symbol); if (!coin) return;
+      const price = card.querySelector('.asset-price'); if (price) price.textContent = money(coin.price);
+      const change = card.querySelector('.asset-change');
+      if (change) {
+        change.firstChild.textContent = `${coin.change < 0 ? '↘' : '↗'} ${changeText(coin.change)} `;
+        change.classList.toggle('down', coin.change < 0);
+        const note = change.querySelector('span'); if (note) note.textContent = 'live 24h change';
+      }
+      const foot = card.querySelector('.asset-card-footer span:last-child'); if (foot) foot.textContent = 'Live market data';
+    });
+    document.querySelectorAll('.market-row').forEach(row => {
+      const symbol = row.querySelector('.market-asset-cell small')?.textContent?.trim().toUpperCase();
+      const coin = bySymbol.get(symbol); if (!coin) return;
+      const price = row.querySelector(':scope > strong'); if (price) price.textContent = money(coin.price);
+      setChange(row.querySelector(':scope > span'), coin.change);
+    });
+  }
+  let refreshInProgress = false;
   async function refresh() {
-    if (inFlight || !navigator.onLine) { if (!navigator.onLine) setStatus('Offline — live prices unavailable'); return; }
-    inFlight = true;
+    if (refreshInProgress || !document.visibilityState || document.visibilityState === 'hidden') return;
+    refreshInProgress = true;
     setStatus('Connecting to live market data…');
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 12000);
-      let response;
-      try {
-        response = await fetch(`https://api.coingecko.com/api/v3/coins/markets?vs_currency=usd&ids=${ids}&price_change_percentage=24h`, { headers: { accept: 'application/json' }, cache: 'no-store', signal: controller.signal });
-      } finally { clearTimeout(timeout); }
-      if (!response.ok) throw new Error(`Provider returned ${response.status}`);
-      const data = await response.json();
-      if (!Array.isArray(data) || data.length < 5) throw new Error('Provider returned incomplete market data');
-      const live = new Map(data.map(coin => [String(coin.symbol || '').toUpperCase(), coin]));
-      const now = new Date();
-      document.querySelectorAll('.ticker-item').forEach(item => {
-        const symbol = (item.dataset.symbol || item.querySelector('b')?.textContent || '').trim().toUpperCase();
-        const coin = live.get(symbol); if (!coin || !Number.isFinite(Number(coin.current_price))) return;
-        const price = item.querySelector('.ticker-live-price'); if (price) price.textContent = money(coin.current_price);
-        setChange(item.querySelector('strong'), coin.price_change_percentage_24h ?? 0);
-      });
-      document.querySelectorAll('.coin-marquee-card').forEach(item => {
-        const symbol = item.querySelector('small')?.textContent?.split('·')[0]?.trim().toUpperCase();
-        const coin = live.get(symbol); if (!coin) return;
-        const label = item.querySelector('small'); if (label) label.textContent = `${symbol} · ${money(coin.current_price)}`;
-        setChange(item.querySelector('em'), coin.price_change_percentage_24h ?? 0);
-      });
-      document.querySelectorAll('.asset-card').forEach(card => {
-        const symbol = card.querySelector('.asset-card-top small')?.textContent?.trim().toUpperCase();
-        const coin = live.get(symbol); if (!coin) return;
-        const price = card.querySelector('.asset-price'); if (price) price.textContent = money(coin.current_price);
-        const change = card.querySelector('.asset-change');
-        if (change) { change.firstChild.textContent = `${Number(coin.price_change_percentage_24h) < 0 ? '↘' : '↗'} ${changeText(coin.price_change_percentage_24h ?? 0)} `; change.classList.toggle('down', Number(coin.price_change_percentage_24h) < 0); const note = change.querySelector('span'); if (note) note.textContent = 'live 24h change'; }
-        const foot = card.querySelector('.asset-card-footer span:last-child'); if (foot) foot.textContent = `Updated ${now.toLocaleTimeString()}`;
-      });
-      document.querySelectorAll('.market-row').forEach(row => {
-        const symbol = (row.dataset.symbol || row.querySelector('.market-asset-cell small')?.textContent || '').trim().toUpperCase();
-        const coin = live.get(symbol); if (!coin) return;
-        const price = row.querySelector(':scope > strong'); if (price) price.textContent = money(coin.current_price);
-        setChange(row.querySelector(':scope > span'), coin.price_change_percentage_24h ?? 0);
-        const bar = row.querySelector('.mini-bar i'); if (bar) { const move = Number(coin.price_change_percentage_24h || 0); bar.style.width = `${Math.max(8, Math.min(100, 50 + move * 5))}%`; }
-      });
-      noteEls.forEach(el => { el.textContent = `Source: CoinGecko · Last updated ${now.toLocaleTimeString()} · Refreshes every 60 seconds.`; });
-      setStatus(`Live market data connected · updated ${now.toLocaleTimeString()}`);
+      const result = await getMarketData();
+      applyLiveData(result.bySymbol);
+      const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setStatus(`Live prices connected · updated ${time}`);
+      setNote(`Live market data from ${result.source}; refreshed every 60 seconds. Prices may be delayed.`);
+      document.querySelectorAll('[data-market-demo-note]').forEach(el => { el.dataset.marketState = 'live'; });
     } catch (error) {
-      setStatus('Live market data unavailable — no current prices are being shown.');
-      noteEls.forEach(el => { el.textContent = 'Unable to retrieve live quotes. Please retry shortly; no sample prices are presented as live.'; });
-    } finally { inFlight = false; }
+      setStatus('Live market data unavailable — preview values are shown.');
+      setNote('Could not reach the market providers. Displayed figures are illustrative preview values, not current quotes. The page will retry automatically.');
+      document.querySelectorAll('[data-market-demo-note]').forEach(el => { el.dataset.marketState = 'preview'; });
+    } finally { refreshInProgress = false; }
   }
   await refresh();
-  window.setInterval(refresh, 60000);
-  window.addEventListener('online', refresh);
+  window.setInterval(refresh, 60_000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') refresh(); });
 })();
 
 // Market Explorer search: filter the already-rendered asset rows without reloading the page.

@@ -11,7 +11,7 @@ This is a code-level repair package based on the project files available in this
 - The admin console sends unauthenticated users to `admin-login.html` and checks the profile role before showing its workspace.
 - Homepage and markets ticker CSS is scoped more explicitly so shared legacy `.ticker-track` styles do not override the coin ticker's dimensions and animation.
 - Market Explorer has client-side asset search/filtering.
-- Market-data fetches use one batched CoinGecko public API request for eight assets. Prices and 24-hour changes update on the homepage ticker, homepage asset cards, and Market Explorer, then refresh every 60 seconds. Values stay blank until real data is received; failures are reported honestly instead of showing sample quotes as current prices. The public endpoint can rate-limit and is not a production-grade data service.
+- Market-data fetches use CoinGecko's public endpoint and label preview data when live data cannot be obtained. The public endpoint may rate-limit; it is not a production-grade data service.
 - Customer dashboard now queries enabled, customer-assigned rows from `public.deposit_addresses` and can display the address and QR image, when the customer-specific migration is applied and addresses are configured.
 - Added `supabase/DEPOSIT-ADDRESS-SETUP.md` explaining where receiving addresses are stored and the checks required before configuration.
 
@@ -21,8 +21,6 @@ This is a code-level repair package based on the project files available in this
 - `node --check assets/auth.js` — passed.
 - `node --check assets/account.js` — passed.
 - `node --check assets/admin.js` — passed.
-- `node --check assets/app.js` — passed after the live-feed changes.
-- A live HTTP request to CoinGecko could not be tested in this environment because DNS/network access was unavailable.
 - `npm install --no-audit --no-fund` timed out in this environment. Therefore a complete `npm run build` has **not** been verified here.
 
 ## Still required before production
@@ -40,3 +38,33 @@ This is a code-level repair package based on the project files available in this
 ## Deployment caution
 
 A Vercel deployment marked `Ready` only means the deployment completed; it does not prove application functionality. Do not accept real deposits or represent balances as funds held in custody until the remaining checks and controls are complete.
+
+
+## Added after user confirmation: email-code registration
+- Signup now moves to a six-digit code entry step and calls Supabase `verifyOtp` with `type: 'signup'`.
+- Added a resend-code action and clear expiry/confidentiality wording. The email copy intentionally excludes the sentence asking recipients to ignore unsolicited mail.
+- Added `supabase/EMAIL-OTP-SETUP.md` with the exact Confirm signup email template required (`{{ .Token }}`) and SMTP setup guidance.
+- Password login remains email/password only after registration is verified; no OTP is requested on each normal login.
+- `node --check` passed for app/auth/account/admin JavaScript. Dependency installation timed out, so Vite production build remains unverified. The email template must still be saved in the user's actual Supabase project and tested end-to-end.
+
+
+## Follow-up live market feed fix
+- Updated the market controller to refresh immediately, then every 60 seconds, and on tab visibility return.
+- Added a CoinGecko-first request and Binance public market-data fallback for the supported crypto assets.
+- Added request timeouts and clear UI status messages. When both providers fail, the UI says values are preview data and retries later.
+- Verified JavaScript syntax with `node --check assets/app.js`.
+- Still not verified: browser requests from the user's Vercel domain, API provider uptime/rate limits, or a full Vite production build. Those require a deployed browser test.
+
+
+## Integrated live market API update (2026-10-17)
+- Added a Vercel serverless endpoint at `api/market.js`. It fetches the eight configured crypto assets from CoinGecko and falls back to Binance public 24-hour ticker data. It returns explicit HTTP 503 if both providers fail and caches successful responses briefly at the edge.
+- The browser now prefers same-origin `/api/market` to reduce browser CORS/provider access problems, with direct public-provider fallbacks. The existing status text continues to distinguish live data from illustrative preview values.
+- Automated local checks: `node --check` passed for all JavaScript files; a mocked eight-asset integration test passed. A real CoinGecko connectivity test could not complete in this execution environment (`fetch failed`), and npm dependency installation timed out, so the Vite production build and actual Vercel deployment remain unverified.
+- This API does not require a secret key. It is market-data infrastructure only; it does not verify blockchain deposits, custody funds, or process withdrawals.
+
+## Final local validation pass (2026-10-17)
+- Expanded `tests/market-api-smoke.mjs` to exercise both the primary CoinGecko response and the Binance fallback, reject unsupported HTTP methods, and confirm that failure of both providers returns HTTP 503 rather than fabricated quotes.
+- Ran the expanded market API smoke test successfully.
+- Ran `node --check` on every JavaScript/module file in `assets/`, `api/`, `tests/`, and `vite.config.js`; all passed.
+- Retried dependency installation. It failed because this environment could not resolve `registry.npmjs.org` (`EAI_AGAIN`), so a production Vite build still cannot be honestly marked as passed.
+- No authenticated GitHub, Vercel, or Supabase account access is available in this chat. No production deployment or real account signup has been performed from this environment.

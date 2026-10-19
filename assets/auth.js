@@ -5,6 +5,8 @@ const message = document.getElementById('authMessage');
 const submit = form?.querySelector('button[type="submit"]');
 const page = document.body.dataset.authPage || 'login';
 const isAdminLogin = page === 'admin-login';
+let pendingSignupEmail = '';
+let verificationPanel = null;
 
 function showMessage(text, kind = 'info') {
   if (!message) return;
@@ -42,6 +44,68 @@ async function routeAfterLogin() {
   window.location.replace('account.html');
 }
 
+function showSignupVerification(email) {
+  pendingSignupEmail = email;
+  const nameField = form.querySelector('[name="displayName"]');
+  const emailField = form.querySelector('[name="email"]');
+  const passwordField = form.querySelector('[name="password"]');
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (nameField) nameField.closest('.field')?.setAttribute('hidden', '');
+  if (emailField) emailField.closest('.field')?.setAttribute('hidden', '');
+  if (passwordField) passwordField.closest('.field')?.setAttribute('hidden', '');
+  if (submitButton) submitButton.hidden = true;
+  const notice = form.querySelector('.notice:not(#authMessage)');
+  if (notice) notice.textContent = `A verification code has been sent to ${email}. Enter the code below to complete your VELTRION registration.`;
+  verificationPanel = document.createElement('div');
+  verificationPanel.id = 'signupVerificationPanel';
+  verificationPanel.innerHTML = `
+    <label class="field"><span>Email verification code</span><input id="signupOtp" name="signupOtp" inputmode="numeric" autocomplete="one-time-code" pattern="[0-9]{6}" maxlength="6" minlength="6" required placeholder="Enter 6-digit code" aria-label="Six-digit email verification code"></label>
+    <button class="btn btn-gold" id="verifySignupCode" type="button">Verify email & continue ↗</button>
+    <p class="form-note">Your code expires after a limited time. Keep it confidential and enter it only on the official VELTRION website.</p>
+    <button class="text-link" id="resendSignupCode" type="button">Resend verification code</button>`;
+  form.appendChild(verificationPanel);
+  document.getElementById('verifySignupCode')?.addEventListener('click', verifySignupCode);
+  document.getElementById('resendSignupCode')?.addEventListener('click', resendSignupCode);
+  document.getElementById('signupOtp')?.focus();
+}
+
+async function verifySignupCode() {
+  const otpInput = document.getElementById('signupOtp');
+  const button = document.getElementById('verifySignupCode');
+  const token = String(otpInput?.value || '').trim();
+  if (!/^\d{6}$/.test(token)) {
+    showMessage('Enter the six-digit verification code from your email.', 'error');
+    otpInput?.focus();
+    return;
+  }
+  if (button) { button.disabled = true; button.textContent = 'Verifying…'; }
+  showMessage('Verifying your email securely…');
+  try {
+    const { error } = await supabase.auth.verifyOtp({ email: pendingSignupEmail, token, type: 'signup' });
+    if (error) throw error;
+    showMessage('Email verified. Setting up your VELTRION account…', 'success');
+    await routeAfterLogin();
+  } catch (error) {
+    showMessage(error?.message || 'We could not verify that code. Check it and try again.', 'error');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Verify email & continue ↗'; }
+  }
+}
+
+async function resendSignupCode() {
+  const button = document.getElementById('resendSignupCode');
+  if (button) { button.disabled = true; button.textContent = 'Sending…'; }
+  try {
+    const { error } = await supabase.auth.resend({ type: 'signup', email: pendingSignupEmail });
+    if (error) throw error;
+    showMessage(`A new verification code has been sent to ${pendingSignupEmail}.`, 'success');
+  } catch (error) {
+    showMessage(error?.message || 'We could not resend the code. Please wait and try again.', 'error');
+  } finally {
+    if (button) { button.disabled = false; button.textContent = 'Resend verification code'; }
+  }
+}
+
 if (!supabaseConfigured) {
   showMessage('Supabase is not configured. Add VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY to Vercel, then redeploy.', 'error');
   if (submit) submit.disabled = true;
@@ -59,12 +123,16 @@ if (!supabaseConfigured) {
         const displayName = String(data.get('displayName') || '').trim();
         const { data: result, error } = await supabase.auth.signUp({
           email, password,
-          options: { data: { display_name: displayName }, emailRedirectTo: `${window.location.origin}/account.html` },
+          options: { data: { display_name: displayName } },
         });
         if (error) throw error;
-        if (result.session) { window.location.replace('account.html'); return; }
-        showMessage('Registration was submitted. Check your email and confirm your address before signing in.', 'success');
-        form.reset();
+        if (result.session) {
+          await routeAfterLogin();
+          return;
+        }
+        if (!result.user) throw new Error('We could not start registration. Please try again.');
+        showSignupVerification(email);
+        showMessage(`A verification code has been sent to ${email}. Enter it to complete registration.`, 'success');
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -72,8 +140,8 @@ if (!supabaseConfigured) {
       }
     } catch (error) {
       const known = {
-        'Invalid login credentials': 'Email or password is incorrect. If this is a new account, register first and confirm your email.',
-        'Email not confirmed': 'Please confirm your email using the link sent to your inbox before signing in.',
+        'Invalid login credentials': 'Email or password is incorrect. If this is a new account, complete email verification first.',
+        'Email not confirmed': 'Please complete email verification using the code sent to your inbox before signing in.',
         'User already registered': 'An account with this email already exists. Please sign in instead.',
       };
       showMessage(known[error?.message] || error?.message || 'We could not complete that request. Please try again.', 'error');
