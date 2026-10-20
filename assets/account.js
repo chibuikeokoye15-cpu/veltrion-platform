@@ -73,7 +73,7 @@ async function loadDepositAddresses(userId) {
     .select('id,asset_symbol,network_code,address,memo_or_tag,qr_payload,minimum_amount,fiat_currency,enabled')
     .or(`user_id.eq.${userId},user_id.is.null`).eq('enabled', true).order('asset_symbol');
   if (error) { statusEl.textContent = 'Deposit addresses are not available yet. The customer-specific address migration and database permissions must be configured first.'; statusEl.dataset.kind = 'error'; return; }
-  if (!data?.length) { statusEl.textContent = 'No deposit address has been assigned to this account yet. Contact VELTRION support; do not send funds to an address from another account.'; statusEl.dataset.kind = 'info'; return; }
+  if (!data?.length) { statusEl.textContent = 'BTC and ETH deposit addresses are awaiting owner verification and activation. Do not send funds until the addresses are enabled and verified.'; statusEl.dataset.kind = 'info'; return; }
   statusEl.textContent = 'Assigned receiving addresses. Verify the asset and network before sending.'; statusEl.dataset.kind = 'success';
   list.innerHTML = data.map(item => {
     const address = String(item.address || ''); const payload = String(item.qr_payload || address);
