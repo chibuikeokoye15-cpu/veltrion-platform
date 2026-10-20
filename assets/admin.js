@@ -63,3 +63,38 @@ $('sendNotification')?.addEventListener('click', async () => {
 });
 $('adminSignOut')?.addEventListener('click', async () => { await supabase.auth.signOut(); window.location.replace('login.html'); });
 boot().catch(error => statusMessage(error?.message || 'Could not initialize administrator console.', true));
+
+// Joint-account administrator top-ups. The database RPC verifies staff role,
+// account membership, idempotency, and records an audit trail server-side.
+async function loadJointAccounts() {
+  const select = $('jointAccountSelect'); if (!select) return;
+  const { data, error } = await supabase.rpc('admin_list_joint_accounts');
+  if (error) { select.innerHTML = '<option value="">Joint account migration not installed</option>'; message($('jointAdjustmentResult'), `Joint accounts unavailable: ${error.message}`, true); return; }
+  select.innerHTML = `<option value="">Select a joint account</option>${(data||[]).map(a=>`<option value="${escapeHtml(a.id)}">${escapeHtml(a.name)} · ${escapeHtml(a.member_count)} active member(s)</option>`).join('')}`;
+}
+async function loadJointMembers() {
+  const accountId = $('jointAccountSelect')?.value; const select = $('jointMemberSelect'); if (!select) return;
+  select.disabled = true; select.innerHTML = '<option value="">Loading members…</option>';
+  if (!accountId) { select.innerHTML = '<option value="">Choose a joint account first</option>'; return; }
+  const { data, error } = await supabase.rpc('admin_list_joint_members', { p_joint_account_id: accountId });
+  if (error) { select.innerHTML = '<option value="">Could not load members</option>'; message($('jointAdjustmentResult'), `Could not load joint members: ${error.message}`, true); return; }
+  select.innerHTML = `<option value="">Select member to attribute the top-up to</option>${(data||[]).map(m=>`<option value="${escapeHtml(m.user_id)}">${escapeHtml(m.display_name||m.email||m.user_id)} · ${escapeHtml(m.email||'')}</option>`).join('')}`;
+  select.disabled = !(data||[]).length;
+}
+$('jointAccountSelect')?.addEventListener('change', loadJointMembers);
+$('submitJointAdjustment')?.addEventListener('click', async()=>{
+  const jointId=$('jointAccountSelect')?.value, memberId=$('jointMemberSelect')?.value;
+  const asset=($('jointAdjustAsset')?.value||'').trim().toUpperCase(); const amount=Number($('jointAdjustAmount')?.value); const reason=$('jointAdjustReason')?.value.trim();
+  if(!jointId||!memberId||!Number.isFinite(amount)||amount===0||!reason){message($('jointAdjustmentResult'),'Select a joint account and member, enter a non-zero amount, and provide a reason.',true);return;}
+  const button=$('submitJointAdjustment');button.disabled=true;
+  try {
+    const {data,error}=await supabase.rpc('admin_adjust_joint_balance',{p_joint_account_id:jointId,p_attributed_user_id:memberId,p_asset_symbol:asset,p_amount:amount,p_reason:reason,p_idempotency_key:crypto.randomUUID()});
+    if(error) { message($('jointAdjustmentResult'),`Joint account adjustment failed: ${error.message}`,true); return; }
+    message($('jointAdjustmentResult'),`Joint account ledger entry saved. Reference: ${data}. The selected member is recorded as the person on whose behalf this entry was made.`);
+    $('jointAdjustAmount').value='';$('jointAdjustReason').value='';await loadAudit();
+  } catch(e){message($('jointAdjustmentResult'),e?.message||'Could not save joint account adjustment.',true)}
+  finally{button.disabled=false}
+});
+// boot may finish before listeners are registered, so load joint accounts once
+// Supabase initialization has completed.
+const jointBootTimer=setInterval(()=>{if(supabaseConfigured && $('adminWorkspace') && !$('adminWorkspace').hidden){clearInterval(jointBootTimer);loadJointAccounts().catch(()=>{});}},500);

@@ -71,7 +71,7 @@ async function loadDepositAddresses(userId) {
   if (!statusEl || !list) return;
   const { data, error } = await supabase.from('deposit_addresses')
     .select('id,asset_symbol,network_code,address,memo_or_tag,qr_payload,minimum_amount,fiat_currency,enabled')
-    .eq('user_id', userId).eq('enabled', true).order('asset_symbol');
+    .or(`user_id.eq.${userId},user_id.is.null`).eq('enabled', true).order('asset_symbol');
   if (error) { statusEl.textContent = 'Deposit addresses are not available yet. The customer-specific address migration and database permissions must be configured first.'; statusEl.dataset.kind = 'error'; return; }
   if (!data?.length) { statusEl.textContent = 'No deposit address has been assigned to this account yet. Contact VELTRION support; do not send funds to an address from another account.'; statusEl.dataset.kind = 'info'; return; }
   statusEl.textContent = 'Assigned receiving addresses. Verify the asset and network before sending.'; statusEl.dataset.kind = 'success';
@@ -86,3 +86,29 @@ async function loadDepositAddresses(userId) {
     catch { const label = $(`copy-status-${record.id}`); if (label) label.textContent = 'Copy unavailable. Select and copy the address above.'; }
   }));
 }
+
+// Joint-account creation and read-only shared ledger. Member invitations and
+// withdrawal workflows are intentionally not presented as active until their
+// secure server-side invitation/approval flow is deployed.
+async function loadCustomerJointAccounts(){
+ const box=$('customerJointAccounts'); if(!box)return;
+ const {data,error}=await supabase.from('joint_accounts').select('id,name,status,created_at').order('created_at',{ascending:false});
+ if(error){box.innerHTML=`<p>Joint accounts are not available yet. Apply the joint-account migration first. ${escapeHtml(error.message)}</p>`;return;}
+ if(!data?.length){box.innerHTML='<p>No joint accounts yet. Create one above to get started.</p>';return;}
+ const sections=[];
+ for(const account of data){
+  const {data:members}=await supabase.from('joint_account_members').select('user_id,member_role,status').eq('joint_account_id',account.id).eq('status','active');
+  const {data:ledger, error:ledgerError}=await supabase.from('joint_balance_ledger').select('created_at,asset_symbol,amount,entry_type,reason,metadata,attributed_user_id').eq('joint_account_id',account.id).order('created_at',{ascending:false}).limit(20);
+  sections.push(`<article class="customer-balance-row"><div><b>${escapeHtml(account.name)}</b><small>${escapeHtml(account.status)} · ${members?.length||0} active member(s) · ID ${escapeHtml(account.id)}</small>${ledgerError?'<p>Shared ledger migration or permissions need attention.</p>':(ledger?.length?`<div style="overflow-x:auto"><table class="data-table"><thead><tr><th>Date</th><th>Asset</th><th>Amount</th><th>Entry</th><th>Attribution / reason</th></tr></thead><tbody>${ledger.map(r=>`<tr><td>${escapeHtml(new Date(r.created_at).toLocaleString())}</td><td>${escapeHtml(r.asset_symbol)}</td><td>${Number(r.amount).toLocaleString('en-US',{maximumFractionDigits:8})}</td><td>${escapeHtml(r.entry_type)}</td><td>${escapeHtml(r.metadata?.display_label||r.reason)}</td></tr>`).join('')}</tbody></table></div>`:'<p>No shared ledger entries yet.</p>')}</div></article>`);
+ }
+ box.innerHTML=sections.join('');
+}
+$('createJointAccount')?.addEventListener('click',async()=>{
+ const name=$('jointAccountName')?.value.trim();const button=$('createJointAccount');const msg=$('jointAccountMessage');
+ if(!name||name.length<2){if(msg){msg.textContent='Enter a joint account name of at least 2 characters.';msg.className='admin-result error';}return;}
+ button.disabled=true;
+ try{const {data,error}=await supabase.rpc('create_joint_account',{p_name:name});if(error)throw error;if(msg){msg.textContent=`Joint account created. Reference: ${data}. It is currently created for your account only; invitations and shared withdrawals must not be treated as active until their secure workflow is deployed.`;msg.className='admin-result';}$('jointAccountName').value='';await loadCustomerJointAccounts();}
+ catch(e){if(msg){msg.textContent=`Could not create joint account: ${e?.message||'unknown error'}`;msg.className='admin-result error';}}
+ finally{button.disabled=false}
+});
+if(supabaseConfigured){const waitJoint=setInterval(()=>{if($('accountRole')?.textContent==='Customer account'){clearInterval(waitJoint);loadCustomerJointAccounts().catch(()=>{});}},500);}
